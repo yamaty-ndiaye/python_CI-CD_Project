@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Vérification du code
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installer flake8
+        run: pip install flake8
+
+      - name: Vérifier le style du code
+        run: flake8 app/ tests/
+
+  test:
+    name: Tests Python
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: lint
+
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache des dépendances
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
+
+      - name: Installer les dépendances
+        run: pip install -r requirements.txt
+
+      - name: Lancer les tests avec coverage
+        run: pytest --cov=app tests/
+
+  deploy:
+    name: Déploiement
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Simuler le déploiement
+        run: |
+          echo "🚀 Déploiement démarré par ${{ github.actor }}"
+          echo "📦 Version : ${{ github.sha }}"
+          echo "✅ Déploiement terminé !"
+        env:
+          ENVIRONMENT: ${{ vars.ENVIRONMENT }}
